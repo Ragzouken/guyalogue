@@ -21,18 +21,15 @@ class GuyaloguePlayback extends EventTarget {
         this.dialoguePlayback = new DialoguePlayback(320, 200);
         this.dialoguePlayback.options.font = font;
 
-        this.time = 0;
-        this.frameCount = 0;
-        
         this.ready = false;
         this.busy = false;
         this.error = false;
 
         this.variables = new Map();
+        /** @type {Map<string, Thread>} */
+        this.threads = new Map();
 
         this.objectURLs = new Map();
-        this.music = document.createElement("audio");
-        this.autoplay = false;
     }
 
     async init() {
@@ -71,9 +68,8 @@ class GuyaloguePlayback extends EventTarget {
         this.error = false;
         this.dialoguePlayback.clear();
         this.variables.clear();
+        this.threads.clear();
 
-        this.music.removeAttribute("src");
-        this.music.pause();
         this.objectURLs.forEach((url) => URL.revokeObjectURL(url));
     }
 
@@ -93,18 +89,18 @@ class GuyaloguePlayback extends EventTarget {
     async start() {
         this.ready = true;
 
-        this.say("hello this is a ~~guyalogue~~ test ==:)==", { lines: 3 });
+        const data = this.stateManager.present;
+        const threads = testParseDialogues(data.dialogues);
+
+        threads.forEach((thread) => {
+            this.threads.set(thread.name, thread);
+        });
+
+        await this.runJS(data.script);
     }
 
     update(dt) {
         if (!this.ready) return;
-
-        // tile animation
-        this.time += dt;
-        while (this.time >= .400) {
-            this.frameCount += 1;
-            this.time -= .4;
-        }
 
         // dialogue animation
         this.dialoguePlayback.update(dt);
@@ -134,22 +130,10 @@ class GuyaloguePlayback extends EventTarget {
         if (!this.ready) return;
 
         this.dialoguePlayback.skip();
-
-        if (this.autoplay) {
-            this.music.play();
-            this.autoplay = false;
-        }
     }
 
     async say(script, options={}) {
         await this.dialoguePlayback.queue(script, options);
-    }
-
-    playMusic(src) {
-        const playing = !this.music.paused;
-        this.music.src = src;
-        this.autoplay = true;
-        if (playing) this.music.play();
     }
 
     showError(text) {
@@ -161,4 +145,43 @@ class GuyaloguePlayback extends EventTarget {
         this.rendering.drawImage(this.dialoguePlayback.dialogueRendering.canvas, 0, 0);
         this.dispatchEvent(new CustomEvent("render"));
     }
+
+    async runJS(js) {
+        const defines = generateScriptingDefines(this);
+        const names = Object.keys(defines).join(", ");
+        const preamble = `const { ${names} } = COMMANDS;\n`;
+
+        try {
+            const script = new AsyncFunction("COMMANDS", preamble + js);
+            await script(defines);
+        } catch (e) {
+            console.log(e);
+            const error = `SCRIPT ERROR:\n${e}`;
+            this.showError(error);
+        }
+    }
+}
+
+/**
+ * @param {GuyaloguePlayback} playback  
+ */
+ function generateScriptingDefines(playback) {
+    // edit here to add new scripting functions
+    const defines = {};
+    
+    defines.PLAYBACK = playback;
+
+    defines.GET = (key, fallback=undefined) => playback.variables.get(key) ?? fallback;
+    defines.SET = (key, value) => playback.variables.set(key, value);
+
+    defines.SAY_THREAD = (name) => {
+        const thread = playback.threads.get(name);
+
+        thread.messages.forEach((message) => {
+            const style = defines.GET("style/" + message.options, {});
+            playback.say(message.script, style);
+        });
+    };
+
+    return defines;
 }

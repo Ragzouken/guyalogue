@@ -81,8 +81,7 @@ async function start() {
         const bundle = save || maker.bundleFromHTML(document, "#editor-embed");
         
         // load bundle
-        await editor.playback.loadBundle(bundle);
-        playback.start();
+        await editor.loadBundle(bundle);
 
         ONE("#playback").hidden = true;
         ONE("#editor").hidden = false;

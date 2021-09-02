@@ -19,35 +19,38 @@ class GuyalogueEditor {
         
         this.stateManager = new maker.StateManager(getManifest);
 
-        const MARIO_STYLE = {
-            panelColor: "#FD001F",
-            textColor: "#FFFFFF",
-            anchorX: 0,
-            anchorY: 0,
-            lines: 3,
-        }
-        
-        const LUIGI_STYLE = {
-            panelColor: "#3DB148",
-            textColor: "#FFFFFF",
-            anchorX: 1,
-            anchorY: 0,
-            lines: 3,
-        }
+        ui.action("playtest", () => this.playtest());
 
-        const dialogues = /** @type {HTMLTextAreaElement} */ (ONE(`[name="dialogues"]`));
-        dialogues.addEventListener("change", () => {
-            const text = dialogues.value;
-            const threads = testParseDialogues(text);
-
-            playback.dialoguePlayback.clear();
-            threads.forEach((thread) => {
-                thread.messages.forEach((message) => {
-                    const style = message.options === "mario" ? MARIO_STYLE : LUIGI_STYLE;
-                    playback.say(message.script, style);
-                });
+        const scriptInput = /** @type {HTMLTextAreaElement} */ (ONE(`[name="script"]`));
+        scriptInput.addEventListener("change", () => {
+            this.stateManager.makeChange(async (data) => {
+                data.script = scriptInput.value;
             });
         });
+        
+        const dialoguesInput = /** @type {HTMLTextAreaElement} */ (ONE(`[name="dialogues"]`));
+        dialoguesInput.addEventListener("change", () => {
+            this.stateManager.makeChange(async (data) => {
+                data.dialogues = dialoguesInput.value;
+            });
+        });
+
+        this.stateManager.addEventListener("change", () => {
+            const data = this.stateManager.present;
+            scriptInput.value = data.script;
+            dialoguesInput.value = data.dialogues;
+
+            this.playtest();
+        });
+    }
+
+    async loadBundle(bundle) {
+        await this.stateManager.loadBundle(bundle);
+    }
+
+    playtest() {
+        this.playback.copyFrom(this.stateManager);
+        this.playback.start();
     }
 }
 
@@ -88,7 +91,7 @@ function testParseDialogues(text) {
         if (message) {
             message.script += line + "\n";
         } else {
-            console.log("ERROR NO MESSAGE TO APPEND");
+            console.log("ERROR NO MESSAGE TO APPEND", line);
         }
     }
 
@@ -109,8 +112,6 @@ function testParseDialogues(text) {
 
     endMessage();
     endThread();
-
-    console.log(threads);
 
     return threads;
 }
