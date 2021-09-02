@@ -1,0 +1,68 @@
+:root {
+    --button-color: #ffd800;
+    --frame-color: #367b6b;
+
+    font-family: sans-serif;
+}
+
+h1, h2, h3 {
+    margin: 0;
+    color: var(--button-color);
+}
+
+button {
+    flex-direction: column;
+    white-space: nowrap;
+    border: none;
+    border-radius: 1em;
+    background-color: var(--button-color);
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: .5rem .75rem;
+}
+
+button:active {
+    filter: invert();
+}
+
+#editor {
+    display: flex; flex-direction: row;
+    width: 100vw; height: 100%;
+}
+
+#preview {
+    flex: 1;
+    overflow: hidden;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#sidebar {
+    display: flex; flex-direction: column;
+    padding: 1rem; gap: 1rem;
+
+    width: 400px;
+    
+    background: var(--frame-color);
+}
+
+#sidebar > textarea {
+    flex: 1;
+    border: 0; margin: 0;
+    border-radius: .5rem;
+
+    background: black;
+    color: white;
+    font-family: monospace;
+    font-size: large;
+    padding: .5rem .75rem;
+}
+
+.row {
+    display: flex; flex-direction: row;
+    gap: 1rem;
+}
