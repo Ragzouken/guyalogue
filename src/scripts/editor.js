@@ -19,8 +19,6 @@ class GuyalogueEditor {
         
         this.stateManager = new maker.StateManager(getManifest);
 
-        ui.action("playtest", () => this.playtest());
-
         const scriptInput = /** @type {HTMLTextAreaElement} */ (ONE(`[name="script"]`));
         scriptInput.addEventListener("change", () => {
             this.stateManager.makeChange(async (data) => {
@@ -40,17 +38,99 @@ class GuyalogueEditor {
             scriptInput.value = data.script;
             dialoguesInput.value = data.dialogues;
 
+            // enable/disable undo/redo buttons
+            this.actions.undo.disabled = !this.stateManager.canUndo;
+            this.actions.redo.disabled = !this.stateManager.canRedo;
+
             this.playtest();
         });
+
+        this.actions = {
+            playtest:  ui.action("playtest", () => this.playtest()),
+
+            // editor toolbar
+            undo: ui.action("undo", () => this.stateManager.undo()),
+            redo: ui.action("redo", () => this.stateManager.redo()),
+
+            // editor menu
+            save: ui.action("save", () => this.save()),
+            export_: ui.action("export", () => this.exportProject()),
+            import_: ui.action("import", () => this.importProject()),
+            reset: ui.action("reset", () => this.resetProject()),
+        };
+
+        this.actions.playtest.disabled = true;
+        this.actions.undo.disabled = true;
+        this.actions.redo.disabled = true;
     }
 
     async loadBundle(bundle) {
         await this.stateManager.loadBundle(bundle);
+        this.actions.playtest.disabled = false;
     }
 
-    playtest() {
-        this.playback.copyFrom(this.stateManager);
-        this.playback.start();
+    async playtest() {
+        await this.playback.copyFrom(this.stateManager);
+        await this.playback.start();
+    }
+
+    async save() {
+        // visual feedback that saving is occuring
+        this.actions.save.disabled = true;
+        const timer = sleep(250);
+
+        // make bundle and save it
+        const bundle = await this.stateManager.makeBundle();
+        storage.save(bundle, "slot0");
+        
+        // successful save, no unsaved changes
+        this.unsavedChanges = false;
+
+        // allow saving again when enough time has passed to see visual feedback
+        await timer;
+        this.actions.save.disabled = false;
+    }
+
+    async exportProject() {
+        // make a standalone bundle of the current project state and the 
+        // resources it depends upon
+        const bundle = await this.stateManager.makeBundle();
+
+        // make a copy of this web page
+        const clone = /** @type {HTMLElement} */ (document.documentElement.cloneNode(true));
+        // HACK? move playback canvas back
+        ONE("#playback-container", clone).prepend(ONE("#playback-canvas", clone));
+        // remove some unwanted elements from the page copy
+        ALL("[data-empty]", clone).forEach((element) => element.replaceChildren());
+        ALL("[data-editor-only]", clone).forEach((element) => element.remove());
+        ALL("[data-hidden-in-editor]", clone).forEach((element) => element.hidden = false);
+        // insert the project bundle data into the page copy 
+        ONE("#bundle-embed", clone).innerHTML = JSON.stringify(bundle);
+
+        // default to player mode
+        clone.setAttribute("data-app-mode", "player");
+
+        // prompt the browser to download the page
+        const name = "guyalogue.html";
+        const blob = maker.textToBlob(clone.outerHTML, "text/html");
+        maker.saveAs(blob, name);
+    }
+
+    async importProject() {
+        // ask the browser to provide a file
+        const [file] = await maker.pickFiles("text/html");
+        // read the file and turn it into an html page
+        const text = await maker.textFromFile(file);
+        const html = await maker.htmlFromText(text);
+        // extract the bundle from the imported page
+        const bundle = maker.bundleFromHTML(html);
+        // load the contents of the bundle into the editor
+        await this.loadBundle(bundle);
+    } 
+
+    async resetProject() {
+        // open a blank project in the editor
+        await this.loadBundle(maker.bundleFromHTML(document, "#editor-embed"));
     }
 }
 

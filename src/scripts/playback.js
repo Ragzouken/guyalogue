@@ -71,6 +71,8 @@ class GuyaloguePlayback extends EventTarget {
         this.threads.clear();
 
         this.objectURLs.forEach((url) => URL.revokeObjectURL(url));
+
+        this.dispatchEvent(new CustomEvent("cancel"));
     }
 
     getFileObjectURL(id) {
@@ -109,8 +111,8 @@ class GuyaloguePlayback extends EventTarget {
     }
 
     render() {
-        // clear to background color
-        fillRendering2D(this.temporary, "#808080");
+        fillRendering2D(this.temporary);
+        fillRendering2D(this.rendering);
 
         // upscale scene to display area
         this.rendering.drawImage(this.temporary.canvas, 0, 0, 320, 200);
@@ -133,7 +135,10 @@ class GuyaloguePlayback extends EventTarget {
     }
 
     async say(script, options={}) {
-        await this.dialoguePlayback.queue(script, options);
+        return new Promise((resolve, reject) => {
+            this.addEventListener("cancel", () => reject("cancelled"));
+            this.dialoguePlayback.queue(script, options).then(resolve);
+        });
     }
 
     showError(text) {
@@ -155,6 +160,7 @@ class GuyaloguePlayback extends EventTarget {
             const script = new AsyncFunction("COMMANDS", preamble + js);
             await script(defines);
         } catch (e) {
+            if (e === "cancelled") return;
             console.log(e);
             const error = `SCRIPT ERROR:\n${e}`;
             this.showError(error);
@@ -174,13 +180,15 @@ class GuyaloguePlayback extends EventTarget {
     defines.GET = (key, fallback=undefined) => playback.variables.get(key) ?? fallback;
     defines.SET = (key, value) => playback.variables.set(key, value);
 
-    defines.SAY_THREAD = (name) => {
-        const thread = playback.threads.get(name);
+    defines.SAY_THREADS = async (...names) => {
+        for (const name of names) {
+            const thread = playback.threads.get(name);
 
-        thread.messages.forEach((message) => {
-            const style = defines.GET("style/" + message.options, {});
-            playback.say(message.script, style);
-        });
+            for (const message of thread.messages) {
+                const style = defines.GET("style/" + message.options, {});
+                await playback.say(message.script, style);
+            }
+        }
     };
 
     return defines;

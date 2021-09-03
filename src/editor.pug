@@ -1,9 +1,16 @@
 #preview
 #sidebar
     h1 editor
-    .row
-        button(name="playtest") restart playtest
-        button(name="save" disabled) save
+    .button-bag
+        .button-bag
+            button(name="playtest") restart playtest
+            button(name="undo") undo
+            button(name="redo") redo
+            button(name="save") save
+        .button-bag
+            button(name="export") export
+            button(name="import") import
+            button(name="reset") reset project
     h2 script
     textarea(name="script" spellcheck="false")
     h2 dialogues

@@ -14,7 +14,7 @@ button {
     flex-direction: column;
     white-space: nowrap;
     border: none;
-    border-radius: 1em;
+    border-radius: .75em;
     background-color: var(--button-color);
     font-weight: bold;
     display: flex;
@@ -62,7 +62,8 @@ button:active {
     padding: .5rem .75rem;
 }
 
-.row {
+.button-bag {
     display: flex; flex-direction: row;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: .5rem;
 }

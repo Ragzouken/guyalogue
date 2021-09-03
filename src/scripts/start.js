@@ -35,10 +35,11 @@ async function setupPlayback(font) {
         
     // update the canvas size every render just in case..
     playback.addEventListener("render", () => {
-        playback.rendering.drawImage(fearimage, 0, 200-128);
-        playback.rendering.drawImage(furbimage, 320-128, 200-128);
-
+        fillRendering2D(rendering, "#808080");
+        rendering.drawImage(fearimage, 0, 200-128);
+        rendering.drawImage(furbimage, 320-128, 200-128);
         rendering.drawImage(playback.rendering.canvas, 0, 0);
+
         fitCanvasToParent(playCanvas);
     });
 
@@ -66,7 +67,6 @@ async function setupPlayback(font) {
 async function start() {
     const font = await loadBasicFont(ONE("#font-embed"));
     const playback = await setupPlayback(font);
-    const editor = await setupEditor(playback);
 
     // determine if there is a project bundle embedded in this page
     const bundle = maker.bundleFromHTML(document);
@@ -76,6 +76,8 @@ async function start() {
         await playback.loadBundle(bundle);
         playback.start();
     } else {
+        const editor = await setupEditor(playback);
+
         // no embedded project, start editor with save or editor embed
         const save = await storage.load("slot0").catch(() => undefined);
         const bundle = save || maker.bundleFromHTML(document, "#editor-embed");
