@@ -7,6 +7,8 @@ const ERROR_STYLE = {
     textColor: "#FFFFFF",
 }
 
+const CANCELLED = {};
+
 class GuyaloguePlayback extends EventTarget {
     constructor(font) {
         super();
@@ -30,6 +32,7 @@ class GuyaloguePlayback extends EventTarget {
         this.threads = new Map();
 
         this.objectURLs = new Map();
+        this.abort = new AbortController();
     }
 
     async init() {
@@ -64,6 +67,9 @@ class GuyaloguePlayback extends EventTarget {
     }
 
     clear() {
+        this.abort.abort();
+        this.abort = new AbortController();
+
         this.ready = false;
         this.error = false;
         this.dialoguePlayback.clear();
@@ -135,10 +141,7 @@ class GuyaloguePlayback extends EventTarget {
     }
 
     async say(script, options={}) {
-        return new Promise((resolve, reject) => {
-            this.addEventListener("cancel", () => reject("cancelled"));
-            this.dialoguePlayback.queue(script, options).then(resolve);
-        });
+        return this.abortable(this.dialoguePlayback.queue(script, options));
     }
 
     showError(text) {
@@ -151,6 +154,14 @@ class GuyaloguePlayback extends EventTarget {
         this.dispatchEvent(new CustomEvent("render"));
     }
 
+    async abortable(promise) {
+        if (this.abort.signal.aborted) throw CANCELLED;
+        return Promise.race([
+            promise,
+            new Promise((_, reject) => this.abort.signal.addEventListener("abort", () => reject(CANCELLED))),
+        ]);
+    }
+
     async runJS(js) {
         const defines = generateScriptingDefines(this);
         const names = Object.keys(defines).join(", ");
@@ -158,9 +169,9 @@ class GuyaloguePlayback extends EventTarget {
 
         try {
             const script = new AsyncFunction("COMMANDS", preamble + js);
-            await script(defines);
+            await this.abortable(script(defines));
         } catch (e) {
-            if (e === "cancelled") return;
+            if (e === CANCELLED) return;
             console.log(e);
             const error = `SCRIPT ERROR:\n${e}`;
             this.showError(error);
@@ -179,6 +190,10 @@ class GuyaloguePlayback extends EventTarget {
 
     defines.GET = (key, fallback=undefined) => playback.variables.get(key) ?? fallback;
     defines.SET = (key, value) => playback.variables.set(key, value);
+
+    defines.LOG = (text) => console.log(text);
+    defines.DELAY = async (seconds) => playback.abortable(sleep(seconds * 1000));
+    defines.SET_CSS = (name, value) => ONE(":root").style.setProperty(name, value);
 
     defines.SAY_THREADS = async (...names) => {
         for (const name of names) {

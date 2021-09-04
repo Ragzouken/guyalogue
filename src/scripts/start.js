@@ -87,7 +87,6 @@ async function start() {
 
         ONE("#playback").hidden = true;
         ONE("#editor").hidden = false;
-        ONE("#preview").prepend(ONE("#playback-canvas"));
 
         // unsaved changes warning
         window.addEventListener("beforeunload", (event) => {

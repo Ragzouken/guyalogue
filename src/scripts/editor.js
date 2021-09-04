@@ -19,6 +19,8 @@ class GuyalogueEditor {
         
         this.stateManager = new maker.StateManager(getManifest);
 
+        this.iframe = ONE("#playtest");
+
         const scriptInput = /** @type {HTMLTextAreaElement} */ (ONE(`[name="script"]`));
         scriptInput.addEventListener("change", () => {
             this.stateManager.makeChange(async (data) => {
@@ -70,8 +72,11 @@ class GuyalogueEditor {
     }
 
     async playtest() {
-        await this.playback.copyFrom(this.stateManager);
-        await this.playback.start();
+        //await this.playback.copyFrom(this.stateManager);
+        //await this.playback.start();
+
+        const html = await this.makeExportHTML();
+        this.iframe.srcdoc = html;
     }
 
     async save() {
@@ -91,15 +96,13 @@ class GuyalogueEditor {
         this.actions.save.disabled = false;
     }
 
-    async exportProject() {
+    async makeExportHTML() {
         // make a standalone bundle of the current project state and the 
         // resources it depends upon
         const bundle = await this.stateManager.makeBundle();
 
         // make a copy of this web page
         const clone = /** @type {HTMLElement} */ (document.documentElement.cloneNode(true));
-        // HACK? move playback canvas back
-        ONE("#playback-container", clone).prepend(ONE("#playback-canvas", clone));
         // remove some unwanted elements from the page copy
         ALL("[data-empty]", clone).forEach((element) => element.replaceChildren());
         ALL("[data-editor-only]", clone).forEach((element) => element.remove());
@@ -109,10 +112,17 @@ class GuyalogueEditor {
 
         // default to player mode
         clone.setAttribute("data-app-mode", "player");
+        const html = clone.outerHTML;
+
+        return html;
+    }
+
+    async exportProject() {
+        const html = await this.makeExportHTML();
 
         // prompt the browser to download the page
         const name = "guyalogue.html";
-        const blob = maker.textToBlob(clone.outerHTML, "text/html");
+        const blob = maker.textToBlob(html, "text/html");
         maker.saveAs(blob, name);
     }
 
